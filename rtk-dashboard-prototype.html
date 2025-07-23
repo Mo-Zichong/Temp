@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTK设备管理系统 - 可视化大屏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #0a0e27;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* 头部样式 */
+        .header {
+            height: 80px;
+            background: linear-gradient(180deg, rgba(0, 168, 255, 0.2) 0%, rgba(0, 168, 255, 0) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-bottom: 1px solid rgba(0, 168, 255, 0.3);
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 600;
+            background: linear-gradient(90deg, #00a8ff 0%, #00d4ff 50%, #00a8ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 168, 255, 0.5);
+        }
+
+        .header .time {
+            position: absolute;
+            right: 30px;
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* 主容器 */
+        .container {
+            height: calc(100vh - 80px);
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 20px;
+        }
+
+        /* 左侧面板 */
+        .left-panel {
+            display: grid;
+            grid-template-rows: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        /* 中间地图区域 */
+        .center-panel {
+            position: relative;
+            background: radial-gradient(circle at center, rgba(0, 168, 255, 0.1) 0%, transparent 70%);
+            border: 1px solid rgba(0, 168, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        /* 右侧面板 */
+        .right-panel {
+            display: grid;
+            grid-template-rows: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        /* 卡片基础样式 */
+        .card {
+            background: rgba(16, 24, 48, 0.8);
+            border: 1px solid rgba(0, 168, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #00a8ff, transparent);
+            animation: scan 3s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .card-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00d4ff;
+            font-weight: 500;
+        }
+
+        /* 统计数字样式 */
+        .stat-number {
+            font-size: 48px;
+            font-weight: 700;
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* 图表容器 */
+        .chart-container {
+            height: 150px;
+            position: relative;
+            margin-top: 10px;
+        }
+
+        /* 进度环 */
+        .progress-ring {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .progress-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        /* 列表样式 */
+        .device-list {
+            list-style: none;
+        }
+
+        .device-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(0, 168, 255, 0.1);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .device-list li:hover {
+            background: rgba(0, 168, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-online { background: #00ff88; box-shadow: 0 0 10px #00ff88; }
+        .status-warning { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; }
+        .status-offline { background: #ff4444; box-shadow: 0 0 10px #ff4444; }
+
+        /* 地图样式 */
+        .map-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600"><rect fill="%230a0e27" width="1000" height="600"/><path stroke="%2300a8ff" stroke-width="0.5" fill="none" opacity="0.3" d="M100,300 Q250,250 400,300 T700,300"/></svg>') no-repeat center;
+            background-size: cover;
+        }
+
+        .device-marker {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .device-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+
+        .device-marker .marker-icon {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .marker-online {
+            background: rgba(0, 255, 136, 0.8);
+            border: 2px solid #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+        }
+
+        .marker-warning {
+            background: rgba(255, 170, 0, 0.8);
+            border: 2px solid #ffaa00;
+            box-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
+            animation: pulse 2s infinite;
+        }
+
+        .marker-offline {
+            background: rgba(255, 68, 68, 0.8);
+            border: 2px solid #ff4444;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.6);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* 热力图样式 */
+        .heatmap-legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(16, 24, 48, 0.9);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .heatmap-gradient {
+            width: 200px;
+            height: 20px;
+            background: linear-gradient(90deg, #0066ff 0%, #00ff88 50%, #ffaa00 75%, #ff4444 100%);
+            margin: 10px 0;
+            border-radius: 2px;
+        }
+
+        /* 动画效果 */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 1600px) {
+            .container {
+                grid-template-columns: 300px 1fr 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="header">
+        <h1>RTK设备管理系统监控大屏</h1>
+        <div class="time" id="currentTime">2024年3月20日 14:30:00</div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 左侧面板 -->
+        <div class="left-panel">
+            <!-- 设备总览 -->
+            <div class="card fade-in">
+                <h3 class="card-title">设备总览</h3>
+                <div class="stat-number">12,456</div>
+                <div class="stat-label">设备总数</div>
+                <div style="display: flex; justify-content: space-around; margin-top: 20px;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; color: #00ff88;">11,234</div>
+                        <div class="stat-label">在线</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; color: #ffaa00;">892</div>
+                        <div class="stat-label">告警</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 24px; color: #ff4444;">330</div>
+                        <div class="stat-label">离线</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在线率统计 -->
+            <div class="card fade-in" style="animation-delay: 0.1s;">
+                <h3 class="card-title">系统在线率</h3>
+                <div class="progress-ring">
+                    <svg width="120" height="120">
+                        <circle cx="60" cy="60" r="50" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="none"/>
+                        <circle cx="60" cy="60" r="50" stroke="#00ff88" stroke-width="10" fill="none"
+                                stroke-dasharray="282.7" stroke-dashoffset="28.27"
+                                stroke-linecap="round"/>
+                    </svg>
+                    <div class="progress-text">90.3%</div>
+                </div>
+            </div>
+
+            <!-- 告警统计 -->
+            <div class="card fade-in" style="animation-delay: 0.2s;">
+                <h3 class="card-title">今日告警</h3>
+                <ul class="device-list">
+                    <li>
+                        <span><span class="status-dot status-warning"></span>网络延迟告警</span>
+                        <span style="color: #ffaa00;">156</span>
+                    </li>
+                    <li>
+                        <span><span class="status-dot status-offline"></span>设备离线告警</span>
+                        <span style="color: #ff4444;">89</span>
+                    </li>
+                    <li>
+                        <span><span class="status-dot status-warning"></span>精度异常告警</span>
+                        <span style="color: #ffaa00;">67</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 中间地图区域 -->
+        <div class="center-panel card">
+            <h3 class="card-title">设备分布地图</h3>
+            <div class="map-container">
+                <!-- 模拟设备标记 -->
+                <div class="device-marker" style="top: 30%; left: 20%;">
+                    <div class="marker-icon marker-online">B1</div>
+                </div>
+                <div class="device-marker" style="top: 50%; left: 35%;">
+                    <div class="marker-icon marker-warning">B2</div>
+                </div>
+                <div class="device-marker" style="top: 40%; left: 60%;">
+                    <div class="marker-icon marker-online">M1</div>
+                </div>
+                <div class="device-marker" style="top: 60%; left: 70%;">
+                    <div class="marker-icon marker-offline">M2</div>
+                </div>
+                <div class="device-marker" style="top: 25%; left: 80%;">
+                    <div class="marker-icon marker-online">B3</div>
+                </div>
+                <!-- 热力图图例 -->
+                <div class="heatmap-legend">
+                    <div>告警密度</div>
+                    <div class="heatmap-gradient"></div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>低</span>
+                        <span>高</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧面板 -->
+        <div class="right-panel">
+            <!-- RTK性能指标 -->
+            <div class="card fade-in" style="animation-delay: 0.3s;">
+                <h3 class="card-title">RTK性能指标</h3>
+                <div style="margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>固定解率</span>
+                        <span style="color: #00ff88;">95.8%</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px;">
+                        <div style="width: 95.8%; height: 100%; background: #00ff88; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                <div style="margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>平均精度</span>
+                        <span style="color: #00d4ff;">2.3cm</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px;">
+                        <div style="width: 88%; height: 100%; background: #00d4ff; border-radius: 4px;"></div>
+                    </div>
+                </div>
+                <div style="margin: 15px 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span>差分链路稳定率</span>
+                        <span style="color: #ffaa00;">89.2%</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px;">
+                        <div style="width: 89.2%; height: 100%; background: #ffaa00; border-radius: 4px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 区域统计 -->
+            <div class="card fade-in" style="animation-delay: 0.4s;">
+                <h3 class="card-title">区域设备统计</h3>
+                <ul class="device-list">
+                    <li>
+                        <span>广州市</span>
+                        <span><span style="color: #00ff88;">2,456</span> / 2,580</span>
+                    </li>
+                    <li>
+                        <span>深圳市</span>
+                        <span><span style="color: #00ff88;">1,892</span> / 1,920</span>
+                    </li>
+                    <li>
+                        <span>东莞市</span>
+                        <span><span style="color: #00ff88;">1,234</span> / 1,350</span>
+                    </li>
+                    <li>
+                        <span>佛山市</span>
+                        <span><span style="color: #00ff88;">987</span> / 1,050</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 实时事件 -->
+            <div class="card fade-in" style="animation-delay: 0.5s;">
+                <h3 class="card-title">实时事件</h3>
+                <div style="height: 150px; overflow-y: auto;">
+                    <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">14:29:45</div>
+                        <div style="font-size: 14px; color: #ff4444;">设备RTK-001离线</div>
+                    </div>
+                    <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">14:28:32</div>
+                        <div style="font-size: 14px; color: #ffaa00;">区域网络延迟告警</div>
+                    </div>
+                    <div style="padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">14:27:18</div>
+                        <div style="font-size: 14px; color: #00ff88;">设备RTK-089恢复正常</div>
+                    </div>
+                    <div style="padding: 8px 0;">
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.6);">14:25:55</div>
+                        <div style="font-size: 14px; color: #00d4ff;">批量配置下发完成</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 更新时间
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.getFullYear() + '年' + 
+                          (now.getMonth() + 1).toString().padStart(2, '0') + '月' +
+                          now.getDate().toString().padStart(2, '0') + '日 ' +
+                          now.getHours().toString().padStart(2, '0') + ':' +
+                          now.getMinutes().toString().padStart(2, '0') + ':' +
+                          now.getSeconds().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = timeStr;
+        }
+        
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // 模拟数据更新
+        function updateData() {
+            // 更新在线设备数
+            const onlineDevices = Math.floor(11000 + Math.random() * 500);
+            const totalDevices = 12456;
+            const onlineRate = ((onlineDevices / totalDevices) * 100).toFixed(1);
+            
+            // 更新进度环
+            const progressText = document.querySelector('.progress-text');
+            if (progressText) {
+                progressText.textContent = onlineRate + '%';
+            }
+            
+            // 更新进度条
+            const progressCircle = document.querySelector('circle[stroke="#00ff88"]');
+            if (progressCircle) {
+                const circumference = 2 * Math.PI * 50;
+                const offset = circumference - (onlineRate / 100) * circumference;
+                progressCircle.style.strokeDashoffset = offset;
+            }
+        }
+        
+        // 每5秒更新一次数据
+        setInterval(updateData, 5000);
+        
+        // 设备标记点击事件
+        document.querySelectorAll('.device-marker').forEach(marker => {
+            marker.addEventListener('click', function() {
+                const deviceId = this.querySelector('.marker-icon').textContent;
+                console.log('点击设备：' + deviceId);
+                // 这里可以添加显示设备详情的逻辑
+            });
+        });
+    </script>
+</body>
+</html>
